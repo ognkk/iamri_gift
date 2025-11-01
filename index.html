@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>iamri</title>
+<style>
+  :root { --muted: rgba(255,255,255,0.25); --bg: #000; --fg:#fff; }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:Poppins,Arial,Helvetica,sans-serif;overflow:hidden}
+  .center-stage{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;padding:20px;box-sizing:border-box}
+  #dayText{font-size:80px;text-shadow:0 0 12px rgba(255,255,255,0.35);opacity:0;transition:opacity .8s}
+  #text{font-size:26px;text-align:center;max-width:900px;margin-top:18px;opacity:0;transition:opacity 1s}
+  #imageContainer{display:flex;gap:24px;align-items:center;justify-content:center;margin-top:18px}
+  #imageContainer img{max-width:420px;max-height:320px;border-radius:12px;opacity:0;transition:opacity .8s}
+  #buttons{margin-top:28px;opacity:0;transition:opacity .6s}
+  .choiceButton{border:2px solid rgba(255,255,255,0.18);background:transparent;color:#fff;padding:12px 28px;border-radius:10px;font-size:20px;cursor:pointer;box-shadow:0 0 10px rgba(255,255,255,0.06)}
+  .choiceButton:hover{transform:scale(1.04);box-shadow:0 0 22px rgba(255,255,255,0.12)}
+
+  /* scene2 */
+  #scene2{display:none;position:fixed;inset:0;background:#000;z-index:10;overflow:auto}
+  .wrap{box-sizing:border-box;max-width:1200px;margin:0 auto;padding:22px;display:flex;flex-direction:column;height:100%}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .title{font-size:20px;font-weight:700}
+  .subtitle{color:var(--muted);font-size:13px}
+  .stage{display:flex;gap:16px;flex:1;align-items:stretch}
+  .col{flex:1;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:12px;overflow:auto}
+  .col h3{margin:0 0 8px;color:var(--muted);font-size:13px}
+  .list{display:flex;flex-direction:column;gap:8px}
+  .item{padding:10px;border-radius:10px;background:rgba(255,255,255,0.03);cursor:pointer;border:1px solid rgba(255,255,255,0.03);user-select:none;transition:all .18s}
+  .item.dim{opacity:.35;transform:scale(.99)}
+  .item.selected{box-shadow:inset 0 0 18px rgba(255,255,255,0.04)}
+  .item.correct{box-shadow:0 0 16px rgba(0,255,140,0.16);border-color:rgba(0,200,120,0.6);outline:3px solid rgba(0,200,120,0.08)}
+  .item.wrong{box-shadow:0 0 16px rgba(255,60,60,0.16);border-color:rgba(255,60,60,0.6);outline:3px solid rgba(255,60,60,0.08)}
+
+  .center{width:480px;max-width:48%;min-width:260px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:12px}
+  .media-frame{width:100%;border-radius:12px;background:#111;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:auto;min-height:120px}
+  .media-frame img, .media-frame video{width:100%;height:auto;max-height:420px;object-fit:contain;border-radius:8px;margin-bottom:10px;display:block}
+  .media-caption{color:var(--muted);text-align:center;font-size:14px;padding:6px 10px}
+
+  .btn-row{display:flex;gap:10px}
+  .ghost-btn{padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:#fff;cursor:pointer}
+
+  #creditsBg{position:fixed;inset:0;background:#000;opacity:0;display:none;z-index:60;transition:opacity 1s}
+  #creditsOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:70;pointer-events:none}
+  #creditsBox{max-width:780px;color:#fff;text-align:center;transform:translateY(60px);opacity:0;transition:transform 1s ease, opacity 1s ease}
+  #creditsBox .inner{line-height:1.6;font-size:20px}
+  .wrap.fade-out{transition:opacity 1.8s ease;opacity:0} 
+
+  @media (max-width:900px){
+    .stage{flex-direction:column}
+    .center{width:100%}
+    .media-frame{min-height:160px}
+  }
+</style>
+</head>
+<body>
+
+<!-- Аудио для фоновой музыки -->
+<audio id="bgMusic" src="final_music.mp3" loop preload="auto"></audio>
+
+<!-- FIRST part: days + intro -->
+<div class="center-stage" id="introStage">
+  <div id="dayText">Day 1</div>
+  <div id="text"></div>
+  <div id="imageContainer"></div>
+  <div id="buttons">
+    <button class="choiceButton" id="btn1">Искать смысл жизни</button>
+    <button class="choiceButton" id="btn2">Создай свой</button>
+  </div>
+</div>
+
+<!-- SECOND part: choice scene -->
+<div id="scene2" aria-hidden="true">
+  <div class="wrap" id="wrapInner">
+    <div class="topbar">
+      <div>
+        <div class="title">Создай свой — соединяй ники и фразы</div>
+        <div class="subtitle">Нажми ник → затем фразу. Правильная пара — показывается воспоминание.</div>
+      </div>
+      <div class="btn-row">
+        <button id="btn-reset" class="ghost-btn">Перемешать</button>
+        <button id="btn-exit" class="ghost-btn">Вернуться</button>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="col" id="leftCol">
+        <h3>Ники</h3>
+        <div class="list" id="nickList"></div>
+      </div>
+
+      <div class="center">
+        <div class="media-frame" id="mediaFrame">
+          <div id="mediaPlaceholder" style="color:var(--muted);text-align:center;padding:10px;">
+            Правильная пара покажет фото или видео здесь.<br><span style="font-size:12px;color:var(--muted)">Клик по экрану закроет медиа</span>
+          </div>
+        </div>
+        <div class="media-caption" id="mediaCaption"></div>
+      </div>
+
+      <div class="col" id="rightCol">
+        <h3>Фразы</h3>
+        <div class="list" id="phraseList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- credits overlay -->
+<div id="creditsBg"></div>
+<div id="creditsOverlay"><div id="creditsBox"><div class="inner" id="creditsInner"></div></div></div>
+
+<script>
+/* ===== Фоновая музыка после клика ===== */
+const bgMusic = document.getElementById('bgMusic');
+bgMusic.volume = 0.01;
+function startMusicOnClick(){
+  bgMusic.play().catch(()=>{});
+  document.body.removeEventListener('click', startMusicOnClick);
+}
+document.body.addEventListener('click', startMusicOnClick);
+
+/* ===== CODEWORD check ===== */
+window.onload = function() {
+  let code = prompt("Введите кодовое слово");
+  if(code !== "даун") {
+    alert("Доступ запрещен");
+    document.body.innerHTML = "<h1 style='color:white;text-align:center;margin-top:40vh;'>Доступ запрещен</h1>";
+    return;
+  }
+
+  animateDays();
+}
+
+/* ================== FIRST: days & intro & story ================== */
+const dayText = document.getElementById('dayText');
+const textEl = document.getElementById('text');
+const imageContainer = document.getElementById('imageContainer');
+const buttons = document.getElementById('buttons');
+const btn1 = document.getElementById('btn1');
+const btn2 = document.getElementById('btn2');
+const scene2 = document.getElementById('scene2');
+const wrapInner = document.getElementById('wrapInner');
+
+let currentDay = 1;
+const maxDays = 365;
+let dayInterval = 300;
+
+function animateDays(){
+  function next(){
+    dayText.textContent = "Day " + currentDay;
+    dayText.style.opacity = 1;
+    currentDay++;
+    if(dayInterval > 20) dayInterval *= 0.98;
+    if(currentDay <= maxDays) setTimeout(next, dayInterval);
+    else {
+      dayText.textContent = "Day X";
+      setTimeout(()=>{
+        dayText.style.transition = "opacity 4s ease-in-out";
+        dayText.style.opacity = 0;
+        setTimeout(showStory, 4000);
+      }, 500);
+    }
+  }
+  setTimeout(()=>{ dayText.style.opacity = 1; next(); }, 5000);
+}
+
+const story = [
+  { text: "С каждым годом нам нужно принимать все больше важных решений...", images: [] },
+  { text: "И перед каждым из нас встает важный выбор...", images: [] },
+  { text: "Например: Пак Богом или же Ли Чон Сок...", images: ["images/pakbogom.jpg","images/leejongsuk.jpg"] },
+  { text: "Алисен: ой..", images: ["images/alisa.jpg"] },
+  { text: "Поехать в Москву или Китай...", images: [] },
+  { text: "Обосрать бывшего подруг или нет...", images: [] },
+  { text: "И перед iamri встает выбор тоже...", images: [] }
+];
+let storyIndex = 0;
+function showStory(){
+  if(storyIndex >= story.length){
+    // show buttons after a pause
+    setTimeout(()=> buttons.style.opacity = 1, 5000);
+    return;
+  }
+  const cur = story[storyIndex];
+  textEl.textContent = cur.text;
+  textEl.style.opacity = 0;
+  imageContainer.innerHTML = '';
+  if(cur.images.length){
+    cur.images.forEach(src=>{
+      const img = document.createElement('img');
+      img.src = src;
+      img.style.opacity = 0;
+      imageContainer.appendChild(img);
+    });
+  }
+  setTimeout(()=>{
+    textEl.style.transition = 'opacity 1s ease-in-out';
+    textEl.style.opacity = 1;
+    const imgs = imageContainer.querySelectorAll('img');
+    imgs.forEach(img => { img.style.transition = 'opacity 1s ease-in-out'; img.style.opacity = 1; });
+    setTimeout(()=>{
+      textEl.style.transition = 'opacity 3s ease-in-out';
+      imgs.forEach(img => img.style.transition = 'opacity 3s ease-in-out');
+    }, 2000);
+    setTimeout(()=>{
+      textEl.style.opacity = 0;
+      imgs.forEach(img => img.style.opacity = 0);
+      setTimeout(()=>{ storyIndex++; showStory(); }, 5000);
+    }, 4000);
+  }, 100);
+}
+
+btn1.addEventListener('click', ()=>{
+  const clickAudio = new Audio('click_sound.mp3');
+  clickAudio.volume = 0.08;
+  clickAudio.play().catch(()=>{});
+  location.reload();
+});
+btn2.addEventListener('click', ()=>{
+  const fadeEl = document.createElement('div');
+  fadeEl.style.position = 'fixed';
+  fadeEl.style.left = 0; fadeEl.style.top = 0; fadeEl.style.right = 0; fadeEl.style.bottom = 0;
+  fadeEl.style.background = '#000'; fadeEl.style.opacity = '0'; fadeEl.style.zIndex = 20;
+  fadeEl.style.transition = 'opacity 0.8s';
+  document.body.appendChild(fadeEl);
+  requestAnimationFrame(()=> fadeEl.style.opacity = '0.9');
+  setTimeout(()=>{
+    scene2.style.display = 'block';
+    fadeEl.style.opacity = '0';
+    setTimeout(()=> document.body.removeChild(fadeEl), 900);
+    initScene();
+  }, 900);
+});
+
+/* ================== SECOND: pairs, lists, media ================== */
+const pairs = [
+  { nick:"whxducky", text:"Будь такой же болтушкой как когда мы иногда сплетничаем.", files:{images:["images/whxducky.jpg"]} },
+  { nick:"e_kkaterina", text:"Оставайся такой же целеустремленной, как в те дни, когда мы по три часа искали алмазы в шахтах.", files:{images:["images/e_kkaterina.jpg"]} },
+  { nick:"aliska117", text:"Продолжай жить и кайфовать, а не оправдывать чьи-либо ожидания. Оставайся такой же душевной и проницательной как в тот день, когда мы танцевали танец из дневников вампира под ливнем!", files:{videos:["videos/aliska117.mp4"]} },
+  { nick:"ALICEE_N", text:"Оставайся такой же заботливой, как когда приходила дарить мне цветок, встречая с уника.", files:{videos:["videos/ALICEE_N.mp4"]} },
+  { nick:"eemilixx", text:"Оставайся такой же счастливой, как в день, когда я привела тебя к мини зоопарку на Крестовском🥹", files:{images:["images/eemilixx.jpg"]} },
+  { nick:"utya_yu", text:"Пусть ты всегда будешь такой же целеустремленной, вдохновленной и неунывающей как после шести часовой дороги ко мне (вместо трехчасовой)", files:{images:["images/utya_yu.jpg"]} },
+  { nick:"imtvnk", text:"Оставайся такой же теплой и жизнерадостной, как те вечера, которые мы проводили вместе", files:{images:["images/imtvnk.jpg"]} },
+  { nick:"mashaavovk", text:"Оставайся такой же веселой и озорной, как в ночь, когда мы в новогодних пижамах выходили в магазин, а потом смотрели эксайла. Оставайся такой же любознательной, как в день, когда мы обошли несколько литературных музеев и познакомились с милой женщиной экскурсоводом❤️", files:{images:["images/mashaavovk.jpg"]} },
+  { nick:"i_OLYA", text:"Пусть твоя жизнь также окрашивается красками, как наш холст с руками.", files:{images:["images/i_OLYA.jpg"]} },
+  { nick:"varrvarrass", text:"Оставайся такой же внимательной и ответственной, как в тот момент, когда алисен решила устроить квест-историю с голосовыми каждому из беба..", files:{images:["images/varrvarrass.jpg"]} },{ nick:"NIKUSIK0", text:"Оставайся такой же веселой и энергичной, как в день, когда танцевала для меня под курседа.", files:{videos:["videos/NIKUSIK0.mp4"]} },
+  { nick:"OGONEKK101", text:"С днем рождения", files:{images:["images/OGONEKK101.jpg"]} },
+  { nick:"downt1povniz", text:"Желаю тебе всегда оставаться такой же энергичной и стойкой, как в тот день в ровеснике :)", files:{images:["images/downt1povniz.jpg"]} }
+];
+
+let leftItems = [], rightItems = [], selectedNick = null, selectedPhrase = null;
+let matched = new Set();
+
+const nickList = document.getElementById('nickList');
+const phraseList = document.getElementById('phraseList');
+const mediaFrame = document.getElementById('mediaFrame');
+const mediaCaption = document.getElementById('mediaCaption');
+const btnReset = document.getElementById('btn-reset');
+const btnExit = document.getElementById('btn-exit');
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+function initScene(){
+  leftItems = pairs.map((p,i)=>({nick:p.nick, idx:i}));
+  rightItems = pairs.map((p,i)=>({text:p.text, idx:i}));
+  shuffle(leftItems); shuffle(rightItems);
+  renderLists();
+  matched.clear(); selectedNick=null; selectedPhrase=null;
+  clearMedia();
+  wrapInner.classList.remove('fade-out');
+  document.querySelector('.wrap').style.opacity = 1;
+}
+
+function renderLists(){
+  nickList.innerHTML=''; phraseList.innerHTML='';
+  leftItems.forEach(li=>{
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.textContent = li.nick;
+    el.dataset.idx = li.idx;
+    el.addEventListener('click', ()=> onNickClick(li.idx, el));
+    nickList.appendChild(el);
+  });
+  rightItems.forEach(ri=>{
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.textContent = ri.text;
+    el.dataset.idx = ri.idx;
+    el.addEventListener('click', ()=> onPhraseClick(ri.idx, el));
+    phraseList.appendChild(el);
+  });
+}
+
+function onNickClick(idx, el){
+  if(matched.has(idx)) return;
+  selectedNick = idx;
+  document.querySelectorAll('#nickList .item').forEach(it=>{
+    if(+it.dataset.idx === idx){ it.classList.add('selected'); it.classList.remove('dim'); }
+    else it.classList.add('dim');
+  });
+  selectedPhrase = null;
+  document.querySelectorAll('#phraseList .item').forEach(it=>it.classList.remove('selected','dim'));
+}
+
+function onPhraseClick(idx, el){
+  if(matched.has(idx)) return;
+  selectedPhrase = idx;
+  document.querySelectorAll('#phraseList .item').forEach(it=>{
+    if(+it.dataset.idx === idx){ it.classList.add('selected'); it.classList.remove('dim'); }
+    else it.classList.add('dim');
+  });
+  if(selectedNick !== null) checkPair(selectedNick, selectedPhrase);
+  else document.querySelectorAll('#nickList .item').forEach(it=>it.classList.add('dim'));
+}
+
+btnReset.addEventListener('click', ()=> initScene());
+btnExit.addEventListener('click', ()=> { window.location.reload(); });
+
+function clearMedia(){
+  mediaFrame.innerHTML = '<div id="mediaPlaceholder" style="color:var(--muted);text-align:center;padding:10px">Правильная пара покажет фото или видео здесь.<br><span style="font-size:12px;color:var(--muted)">Клик по экрану закрывает медиа</span></div>';
+  if(mediaCaption) mediaCaption.textContent = '';
+}
+
+function checkPair(nickIdx, phraseIdx){
+  const nickEl = document.querySelector('#nickList .item[data-idx="'+nickIdx+'"]');
+  const phraseEl = document.querySelector('#phraseList .item[data-idx="'+phraseIdx+'"]');
+
+  if(nickIdx === phraseIdx){
+    matched.add(nickIdx);
+    nickEl.classList.add('correct');
+    phraseEl.classList.add('correct');
+    nickEl.classList.remove('selected','dim');
+    phraseEl.classList.remove('selected','dim');
+
+    const p = pairs[nickIdx];
+    mediaFrame.innerHTML = '';
+    if(p.files.images){
+      p.files.images.forEach(src=>{
+        const img = document.createElement('img');
+        img.src = src;
+        mediaFrame.appendChild(img);
+      });
+    }
+    if(p.files.videos){
+      p.files.videos.forEach(src=>{
+        const vid = document.createElement('video');
+        vid.src = src;
+        vid.controls = true;
+        vid.style.maxHeight = "420px";
+        mediaFrame.appendChild(vid);
+      });
+    }
+    mediaCaption.textContent = p.text;
+
+    if(matched.size === pairs.length){
+      setTimeout(()=> startFinalTransition(), 2200);
+    }
+  } else {
+    nickEl.classList.add('wrong');
+    phraseEl.classList.add('wrong');
+    setTimeout(()=>{ nickEl.classList.remove('wrong'); phraseEl.classList.remove('wrong'); }, 900);
+    setTimeout(()=>{ document.querySelectorAll('.item').forEach(it=>it.classList.remove('selected','dim')); }, 700);
+  }
+}
+
+/* ========== Final transition: fade scene then show credits ========== */
+const creditsBg = document.getElementById('creditsBg');
+const creditsOverlay = document.getElementById('creditsOverlay');
+const creditsBox = document.getElementById('creditsBox');
+const creditsInner = document.getElementById('creditsInner');
+
+function startFinalTransition(){
+  wrapInner.classList.add('fade-out');
+
+  setTimeout(()=> {
+    creditsBg.style.display = 'block';
+    creditsBg.style.opacity = 2;
+
+    creditsOverlay.style.display = 'flex';
+    creditsBox.style.opacity = 1;
+    creditsBox.style.transform = 'translateY(100vh)'; // старт снизу
+    creditsBox.style.transition = 'transform 36s linear, opacity 1s ease';
+
+    // задаём контент
+    creditsInner.innerHTML = `
+       <div style="font-weight:700;font-size:26px;margin-bottom:8px">Дорогая Рита.</div>
+      <div>Ты и без наших слов знаешь, какая ты замечательная. Меньшее, что мы можем сделать вместе – это напомнить тебе, как мы счастливы, когда ты рядом.</div>
+      <div style="height:10px"></div>
+      <div>Люби себя, жизнь и не забывай, что с тобой рядом люди, которым ты важна.</div>
+      <div style="height:10px"></div>
+      <div style="font-weight:700;margin-top:12px">С днем рождения!</div>
+      <div style="height:14px"></div>
+      <div>прохрамист – OGONEEEEEEKK</div>
+      <div>идейщик хуев – ALICEEEEEN</div>
+      <div>дебилы – EKATERIIIIINA  & IOOOOOLYA & NIKUUUUUUSIK</div>
+      <div style="height:18px"></div>
+      <div><img src="yamriluva.png" alt="yamriluva" style="width:120px;border-radius:8px;margin-top:8px"></div>
+    `;
+
+    // проигрываем музыку
+    const audio = new Audio('final_music.mp3');
+    audio.volume = 0.03;
+    audio.play().catch(()=>{});
+
+    // через RAF запускаем анимацию
+    requestAnimationFrame(()=>{
+      creditsBox.style.transform = 'translateY(-65vh)';
+    });
+
+    setTimeout(()=>{
+      creditsBox.style.opacity = 0;
+      creditsBg.style.opacity = 0;
+      setTimeout(()=>{
+        creditsOverlay.style.display = 'none';
+        creditsBg.style.display = 'none';
+      }, 900);
+    }, 36000);
+
+  }, 1800);
+}
+</script>
+</body>
+</html>
