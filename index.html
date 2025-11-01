@@ -373,17 +373,19 @@ function startFinalTransition(){
   wrapInner.classList.add('fade-out');
 
   setTimeout(()=> {
+    // показываем фон и оверлей
     creditsBg.style.display = 'block';
-    creditsBg.style.opacity = 1;
-
     creditsOverlay.style.display = 'flex';
-    creditsBox.style.opacity = 1;
-    creditsBox.style.transform = 'translateY(100vh)'; // старт снизу
-    creditsBox.style.transition = 'transform 36s linear, opacity 1s ease';
+    
+    // начальные состояния для плавности
+    creditsBg.style.opacity = 0;
+    creditsBox.style.opacity = 0;
+    creditsBox.style.transform = 'translateY(100vh)';
+    creditsBox.style.transition = 'transform 36s linear, opacity 3s ease'; // плавнее (3с)
 
     // задаём контент
     creditsInner.innerHTML = `
-       <div style="font-weight:700;font-size:26px;margin-bottom:8px">Дорогая Рита.</div>
+      <div style="font-weight:700;font-size:26px;margin-bottom:8px">Дорогая Рита.</div>
       <div>Ты и без наших слов знаешь, какая ты замечательная. Меньшее, что мы можем сделать вместе – это напомнить тебе, как мы счастливы, когда ты рядом.</div>
       <div style="height:10px"></div>
       <div>Люби себя, жизнь и не забывай, что с тобой рядом люди, которым ты важна.</div>
@@ -402,25 +404,32 @@ function startFinalTransition(){
     audio.volume = 0.03;
     audio.play().catch(()=>{});
 
-    // через RAF запускаем анимацию
+    // плавное появление
+    setTimeout(() => {
+      creditsBg.style.transition = 'opacity 2.5s ease';
+      creditsBg.style.opacity = 0.92;
+      creditsBox.style.opacity = 1;
+    }, 100);
+
+    // анимация движения титров вверх
     requestAnimationFrame(()=>{
       creditsBox.style.transform = 'translateY(-65vh)';
     });
 
+    // плавное исчезновение в конце
     setTimeout(()=>{
+      creditsBox.style.transition = 'opacity 2s ease';
       creditsBox.style.opacity = 0;
+      creditsBg.style.transition = 'opacity 2s ease';
       creditsBg.style.opacity = 0;
       setTimeout(()=>{
         creditsOverlay.style.display = 'none';
         creditsBg.style.display = 'none';
-      }, 900);
-    }, 36000);
+      }, 2000);
+    }, 37000);
 
   }, 1800);
 }
 </script>
 </body>
-
 </html>
-
-
